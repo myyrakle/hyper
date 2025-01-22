@@ -58,6 +58,7 @@ where
                 method: None,
                 h1_parser_config: ParserConfig::default(),
                 h1_max_headers: None,
+                h1_max_header_size: None,
                 #[cfg(feature = "server")]
                 h1_header_read_timeout: None,
                 #[cfg(feature = "server")]
@@ -139,6 +140,10 @@ where
 
     pub(crate) fn set_http1_max_headers(&mut self, val: usize) {
         self.state.h1_max_headers = Some(val);
+    }
+
+    pub(crate) fn set_http1_max_header_size(&mut self, val: usize) {
+        self.state.h1_max_header_size = Some(val);
     }
 
     #[cfg(feature = "server")]
@@ -300,7 +305,11 @@ where
             Wants::EMPTY
         };
 
+        println!("@@@ 들어오나? {}", msg.head.headers.len());
+
         if msg.decode == DecodedLength::ZERO {
+            println!("@@@ 222들어오나?");
+
             if msg.expect_continue {
                 debug!("ignoring expect-continue since body is empty");
             }
@@ -309,19 +318,19 @@ where
                 self.try_keep_alive(cx);
             }
         } else if msg.expect_continue && msg.head.version.gt(&Version::HTTP_10) {
-            let h1_max_header_size = None; // TODO: remove this when we land h1_max_header_size support
             self.state.reading = Reading::Continue(Decoder::new(
                 msg.decode,
                 self.state.h1_max_headers,
-                h1_max_header_size,
+                self.state.h1_max_header_size,
             ));
             wants = wants.add(Wants::EXPECT);
         } else {
-            let h1_max_header_size = None; // TODO: remove this when we land h1_max_header_size support
+            println!("!!!!2");
+            println!("@@@ {:?}", self.state.h1_max_header_size);
             self.state.reading = Reading::Body(Decoder::new(
                 msg.decode,
                 self.state.h1_max_headers,
-                h1_max_header_size,
+                self.state.h1_max_header_size,
             ));
         }
 
@@ -924,6 +933,7 @@ struct State {
     method: Option<Method>,
     h1_parser_config: ParserConfig,
     h1_max_headers: Option<usize>,
+    h1_max_header_size: Option<usize>,
     #[cfg(feature = "server")]
     h1_header_read_timeout: Option<Duration>,
     #[cfg(feature = "server")]
